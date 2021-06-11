@@ -60,11 +60,13 @@ var times = flag.Int("config.scrape-times", 0, "how many times to scrape before 
 var roleArn = flag.String("config.role-arn", "", "ARN of the role to assume when scraping the AWS API (optional)")
 var prometheusPortLabel = flag.String("config.port-label", "PROMETHEUS_EXPORTER_PORT", "Docker label to define the scrape port of the application (if missing an application won't be scraped)")
 var prometheusPathLabel = flag.String("config.path-label", "PROMETHEUS_EXPORTER_PATH", "Docker label to define the scrape path of the application")
-var prometheusSchemeLabel= flag.String("config.scheme-label", "PROMETHEUS_EXPORTER_SCHEME", "Docker label to define the scheme of the target application")
+var prometheusSchemeLabel = flag.String("config.scheme-label", "PROMETHEUS_EXPORTER_SCHEME", "Docker label to define the scheme of the target application")
 var prometheusFilterLabel = flag.String("config.filter-label", "", "Docker label (and optionally value) to require to scrape the application")
 var prometheusServerNameLabel = flag.String("config.server-name-label", "PROMETHEUS_EXPORTER_SERVER_NAME", "Docker label to define the server name")
 var prometheusJobNameLabel = flag.String("config.job-name-label", "PROMETHEUS_EXPORTER_JOB_NAME", "Docker label to define the job name")
 var prometheusDynamicPortDetection = flag.Bool("config.dynamic-port-detection", false, fmt.Sprintf("If true, only tasks with the Docker label %s=1 will be scraped", dynamicPortLabel))
+
+var prometheusPortValue = flag.String("config.port-value", "", "Fallback value to use in case if PROMETHEUS_EXPORTER_PORT label is missing")
 
 // logError is a convenience function that decodes all possible ECS
 // errors and displays them to standard error.
@@ -218,9 +220,13 @@ func (t *AugmentedTask) ExporterInformation() []*PrometheusTaskInfo {
 		} else {
 			v, ok := d.DockerLabels[*prometheusPortLabel]
 			if !ok {
-				// Nope, no Prometheus-exported port in this container def.
-				// This container is no good.  We continue.
-				continue
+				if *prometheusPortValue != "" {
+					v = *prometheusPortValue
+				} else {
+					// Nope, no Prometheus-exported port in this container def.
+					// This container is no good.  We continue.
+					continue
+				}
 			}
 
 			if len(filter) != 0 {
@@ -297,7 +303,7 @@ func (t *AugmentedTask) ExporterInformation() []*PrometheusTaskInfo {
 
 		scheme, ok = d.DockerLabels[*prometheusSchemeLabel]
 		if ok {
-		    labels.Scheme = scheme
+			labels.Scheme = scheme
 		}
 
 		ret = append(ret, &PrometheusTaskInfo{
